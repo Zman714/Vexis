@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#060f18;color:#fff;font-family:'Press Start 2P',monospace;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;user-select:none;touch-action:manipulation;}
+body{background:#060f18;color:#fff;font-family:'Press Start 2P',monospace;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;height:100dvh;user-select:none;touch-action:manipulation;}
 #wrapper{position:relative;display:inline-block;}
 canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 60px #8b72be1a;position:relative;z-index:0;}
 .screen{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,17,26,0.93);z-index:10;}
@@ -39,24 +39,38 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
 .vol-slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#6dc8bf;border:none;cursor:pointer;box-shadow:0 0 7px #6dc8bf99;}
 /* ---- MOBILE TOUCH CONTROLS ---- */
 :root{--tcb:min(40px,10.5vw);}
-#touch-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5;display:none;}
-.tc-pad{position:absolute;bottom:8px;display:grid;grid-template-areas:'. up .' 'left . right' '. down .';grid-template-columns:repeat(3,var(--tcb));grid-template-rows:repeat(3,var(--tcb));gap:2px;pointer-events:none;}
-#tc-pad1{left:8px;}
-#tc-pad2{right:8px;display:none;}
+/* Landscape: body becomes a row so controls flank the canvas */
+@media(orientation:landscape){
+  body{flex-direction:row;gap:10px;}
+  #wrapper{order:2;}
+  #mc-p1{order:1;}
+  #mc-p2{order:3;}
+  /* In landscape, each panel stacks D-pad above fire button */
+  .mc-panel{flex-direction:column!important;gap:12px;justify-content:center;}
+}
+/* Controls row — sibling of #wrapper; display toggled by JS */
+#mc-row{display:none;flex-direction:row;align-items:center;justify-content:space-around;width:100%;padding:8px 0;}
+/* Each player's panel: D-pad + fire side-by-side in portrait */
+.mc-panel{display:flex;flex-direction:row;align-items:center;gap:12px;}
+/* D-pad grid */
+.tc-pad{display:grid;grid-template-areas:'. up .' 'left . right' '. down .';grid-template-columns:repeat(3,var(--tcb));grid-template-rows:repeat(3,var(--tcb));gap:2px;}
 .tc-up{grid-area:up;}.tc-left{grid-area:left;}.tc-right{grid-area:right;}.tc-down{grid-area:down;}
-.tc-btn{pointer-events:auto;background:rgba(109,200,191,0.06);border:1px solid rgba(109,200,191,0.14);color:rgba(255,255,255,0.24);font-size:calc(var(--tcb)*.4);border-radius:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;}
-.tc-btn:active{background:rgba(109,200,191,0.22);color:rgba(255,255,255,0.72);border-color:rgba(109,200,191,0.44);}
-#tc-pad2 .tc-btn{background:rgba(255,221,0,0.06);border-color:rgba(255,221,0,0.14);}
-#tc-pad2 .tc-btn:active{background:rgba(255,221,0,0.22);border-color:rgba(255,221,0,0.44);}
-.tc-fire{position:absolute;bottom:calc(8px + var(--tcb));width:calc(var(--tcb)*1.15);height:calc(var(--tcb)*1.15);border-radius:50%;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;font-size:calc(var(--tcb)*.48);}
-#tc-fire1{left:calc(16px + 3*var(--tcb));background:rgba(109,200,191,0.06);border:1px solid rgba(109,200,191,0.14);color:rgba(109,200,191,0.36);}
-#tc-fire1:active{background:rgba(109,200,191,0.22);color:rgba(109,200,191,0.90);border-color:rgba(109,200,191,0.50);}
-#tc-fire2{right:calc(16px + 3*var(--tcb));background:rgba(255,221,0,0.06);border:1px solid rgba(255,221,0,0.14);color:rgba(255,221,0,0.36);display:none;}
-#tc-fire2:active{background:rgba(255,221,0,0.22);color:rgba(255,221,0,0.90);border-color:rgba(255,221,0,0.50);}
-#tc-pause{position:absolute;top:58px;left:6px;width:26px;height:26px;border-radius:5px;background:rgba(139,114,190,0.07);border:1px solid rgba(139,114,190,0.15);color:rgba(255,255,255,0.22);font-size:10px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
-#tc-pause:active{background:rgba(139,114,190,0.24);color:rgba(255,255,255,0.72);}
-#tc-fs-game{position:absolute;top:58px;right:6px;width:26px;height:26px;border-radius:5px;background:rgba(139,114,190,0.07);border:1px solid rgba(139,114,190,0.15);color:rgba(255,255,255,0.22);font-size:11px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
-#tc-fs-game:active{background:rgba(139,114,190,0.24);color:rgba(255,255,255,0.72);}
+.tc-btn{background:rgba(109,200,191,0.08);border:1px solid rgba(109,200,191,0.20);color:rgba(255,255,255,0.32);font-size:calc(var(--tcb)*.42);border-radius:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;}
+.tc-btn:active{background:rgba(109,200,191,0.30);color:rgba(255,255,255,0.85);border-color:rgba(109,200,191,0.55);}
+#mc-p2 .tc-btn{background:rgba(255,221,0,0.08);border-color:rgba(255,221,0,0.20);}
+#mc-p2 .tc-btn:active{background:rgba(255,221,0,0.30);border-color:rgba(255,221,0,0.55);}
+/* Fire buttons */
+.tc-fire{width:calc(var(--tcb)*1.1);height:calc(var(--tcb)*1.1);border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;font-size:calc(var(--tcb)*.48);}
+#tc-fire1{background:rgba(109,200,191,0.08);border:1px solid rgba(109,200,191,0.20);color:rgba(109,200,191,0.45);}
+#tc-fire1:active{background:rgba(109,200,191,0.30);color:rgba(109,200,191,0.95);border-color:rgba(109,200,191,0.55);}
+#tc-fire2{background:rgba(255,221,0,0.08);border:1px solid rgba(255,221,0,0.20);color:rgba(255,221,0,0.45);}
+#tc-fire2:active{background:rgba(255,221,0,0.30);color:rgba(255,221,0,0.95);border-color:rgba(255,221,0,0.55);}
+/* Tiny in-canvas overlay: pause + FS only */
+#touch-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5;display:none;}
+#tc-pause{position:absolute;top:58px;left:6px;width:26px;height:26px;border-radius:5px;background:rgba(139,114,190,0.08);border:1px solid rgba(139,114,190,0.18);color:rgba(255,255,255,0.26);font-size:10px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
+#tc-pause:active{background:rgba(139,114,190,0.28);color:rgba(255,255,255,0.75);}
+#tc-fs-game{position:absolute;top:58px;right:6px;width:26px;height:26px;border-radius:5px;background:rgba(139,114,190,0.08);border:1px solid rgba(139,114,190,0.18);color:rgba(255,255,255,0.26);font-size:11px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
+#tc-fs-game:active{background:rgba(139,114,190,0.28);color:rgba(255,255,255,0.75);}
 .mobile-only{display:none;}
 </style>
 </head>
@@ -169,9 +183,19 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
 
   <div id="dbg"><div id="dbg-content"></div><div id="dbg-handle"></div></div>
 
-  <!-- MOBILE TOUCH CONTROLS -->
+  <!-- Tiny in-canvas overlay: pause + fullscreen only -->
   <div id="touch-overlay">
-    <!-- P1: D-pad bottom-left, fire to the right of it -->
+    <button id="tc-pause" onclick="togglePause()">⏸</button>
+    <button id="tc-fs-game" onclick="toggleFS()">⛶</button>
+  </div>
+</div>
+
+<!-- MOBILE CONTROLS: outside canvas.
+     Portrait  → #mc-row is a flex row below the canvas (display:flex).
+     Landscape → #mc-row gets display:contents so #mc-p1/#mc-p2 become
+                 body flex items flanking #wrapper via CSS order. -->
+<div id="mc-row">
+  <div class="mc-panel" id="mc-p1">
     <div class="tc-pad" id="tc-pad1">
       <button class="tc-btn tc-up" data-dir="UP">▲</button>
       <button class="tc-btn tc-left" data-dir="LEFT">◀</button>
@@ -179,7 +203,8 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
       <button class="tc-btn tc-down" data-dir="DOWN">▼</button>
     </div>
     <button class="tc-fire" id="tc-fire1">⚡</button>
-    <!-- P2: D-pad bottom-right, fire to the left of it (2P only) -->
+  </div>
+  <div class="mc-panel" id="mc-p2">
     <div class="tc-pad" id="tc-pad2">
       <button class="tc-btn tc-up" data-dir="UP">▲</button>
       <button class="tc-btn tc-left" data-dir="LEFT">◀</button>
@@ -187,9 +212,6 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
       <button class="tc-btn tc-down" data-dir="DOWN">▼</button>
     </div>
     <button class="tc-fire" id="tc-fire2">⚡</button>
-    <!-- Pause and fullscreen buttons (top corners of game area) -->
-    <button id="tc-pause" onclick="togglePause()">⏸</button>
-    <button id="tc-fs-game" onclick="toggleFS()">⛶</button>
   </div>
 </div>
 
@@ -554,8 +576,8 @@ function initCanvas(){
   canvas=document.getElementById('gc');ctx=canvas.getContext('2d');
   resizeC();
   window.addEventListener('resize',resizeC);
-  // orientationchange fires before the viewport updates, so delay the resize
-  window.addEventListener('orientationchange',()=>setTimeout(resizeC,250));
+  // orientationchange fires before the viewport updates; delay so dimensions settle
+  window.addEventListener('orientationchange',()=>setTimeout(()=>{resizeC();_tcPhase=null;_tcLS=null;updateTouchOverlay();},250));
   document.addEventListener('fullscreenchange',resizeC);
   document.addEventListener('webkitfullscreenchange',resizeC);
 }
@@ -939,21 +961,24 @@ function initInput(){
 // ================================================================
 function isMobile(){return'ontouchstart'in window||navigator.maxTouchPoints>0;}
 
-let _tcPhase=null,_tcP2=null;
+let _tcPhase=null,_tcP2=null,_tcLS=null;
 function updateTouchOverlay(){
   const phase=G?G.phase:null;
   const p2=cfg.players==='2';
-  if(phase===_tcPhase&&p2===_tcP2)return;
-  _tcPhase=phase;_tcP2=p2;
-  const ov=document.getElementById('touch-overlay');if(!ov)return;
+  const isLS=window.innerWidth>window.innerHeight;
+  if(phase===_tcPhase&&p2===_tcP2&&isLS===_tcLS)return;
+  _tcPhase=phase;_tcP2=p2;_tcLS=isLS;
   const show=isMobile()&&phase==='playing';
-  ov.style.display=show?'block':'none';
-  if(show){
-    const pad2=document.getElementById('tc-pad2');
-    const fire2=document.getElementById('tc-fire2');
-    if(pad2)pad2.style.display=p2?'grid':'none';
-    if(fire2)fire2.style.display=p2?'flex':'none';
-  }
+  // Tiny canvas overlay (pause + FS)
+  const ov=document.getElementById('touch-overlay');
+  if(ov)ov.style.display=show?'block':'none';
+  // Main controls row: 'flex' in portrait (row below canvas),
+  // 'contents' in landscape (dissolves so panels become body flex items)
+  const mcRow=document.getElementById('mc-row');
+  if(mcRow)mcRow.style.display=show?(isLS?'contents':'flex'):'none';
+  // P2 panel: only shown in 2-player mode
+  const mc2=document.getElementById('mc-p2');
+  if(mc2)mc2.style.display=(show&&p2)?'flex':'none';
 }
 
 function initTouch(){
@@ -968,7 +993,7 @@ function initTouch(){
   const ph=document.getElementById('pause-hint');
   if(ph)ph.textContent='TAP RESUME TO CONTINUE';
   // Wire D-pad direction buttons for both players
-  document.querySelectorAll('#tc-pad1 .tc-btn, #tc-pad2 .tc-btn').forEach(btn=>{
+  document.querySelectorAll('.tc-btn').forEach(btn=>{
     btn.addEventListener('touchstart',e=>{
       e.preventDefault();
       if(!G||G.phase!=='playing')return;
