@@ -41,7 +41,7 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
 </head>
 <body>
 <div id="wrapper">
-  <audio id="bgm" src="music.ogg" loop preload="auto" style="display:none"></audio>
+  <audio id="bgm" preload="auto" style="display:none"></audio>
   <canvas id="gc"></canvas>
 
   <!-- TITLE -->
@@ -424,6 +424,18 @@ const sfx={
 };
 
 // BGM — plain <audio> element; .volume for control avoids Web Audio CORS issues on file://
+const TRACKS=['music.ogg','Pixel Meadow.mp3','Pixel Meadow (1).mp3','Pixel Meadow (2).mp3','Pixel Meadow (3).mp3'];
+let _trackQueue=[],_trackQIdx=0;
+function _nextTrack(){
+  if(_trackQIdx>=_trackQueue.length){
+    const last=_trackQueue.length?_trackQueue[_trackQueue.length-1]:null;
+    _trackQueue=[...TRACKS].sort(()=>Math.random()-0.5);
+    // avoid immediate repeat across shuffle boundaries
+    if(last&&_trackQueue[0]===last&&_trackQueue.length>1){const t=_trackQueue.splice(1,1)[0];_trackQueue.unshift(t);}
+    _trackQIdx=0;
+  }
+  return _trackQueue[_trackQIdx++];
+}
 let _fadeTimer=null;
 function _bgm(){return document.getElementById('bgm');}
 function _clearFade(){if(_fadeTimer){clearInterval(_fadeTimer);_fadeTimer=null;}}
@@ -442,6 +454,10 @@ function _fadeTo(b,target,ms,cb){
 }
 function startMusic(){
   const b=_bgm();if(!b)return;
+  // resume from pause without changing the track
+  if(b.paused&&b.currentTime>0){b.play().catch(()=>{});_fadeTo(b,cfg.muted?0:cfg.musicVol,1200);return;}
+  b.src=_nextTrack();
+  b.onended=()=>{const b=_bgm();if(!b)return;b.src=_nextTrack();b.volume=0;b.play().catch(()=>{});_fadeTo(b,cfg.muted?0:cfg.musicVol,800);};
   b.volume=0;b.play().catch(()=>{});
   _fadeTo(b,cfg.muted?0:cfg.musicVol,1200);
 }
