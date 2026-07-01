@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Vexis</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#060f18;color:#fff;font-family:'Press Start 2P',monospace;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100vh;user-select:none;}
+body{background:#060f18;color:#fff;font-family:'Press Start 2P',monospace;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;user-select:none;}
 #wrapper{position:relative;display:inline-block;}
 canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 60px #8b72be1a;position:relative;z-index:0;}
 .screen{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,17,26,0.93);z-index:10;}
@@ -37,6 +37,26 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
 .vol-slider{-webkit-appearance:none;appearance:none;width:150px;height:4px;background:#142030;border-radius:2px;outline:none;cursor:pointer;vertical-align:middle;}
 .vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#6dc8bf;cursor:pointer;box-shadow:0 0 7px #6dc8bf99;}
 .vol-slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#6dc8bf;border:none;cursor:pointer;box-shadow:0 0 7px #6dc8bf99;}
+/* ---- MOBILE TOUCH CONTROLS ---- */
+#touch-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5;display:none;}
+.tc-pad{position:absolute;bottom:16px;display:grid;grid-template-areas:'. up .' 'left . right' '. down .';grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);pointer-events:none;}
+#tc-pad1{left:16px;}
+#tc-pad2{right:16px;display:none;}
+.tc-up{grid-area:up;}.tc-left{grid-area:left;}.tc-right{grid-area:right;}.tc-down{grid-area:down;}
+.tc-btn{pointer-events:auto;background:rgba(109,200,191,0.08);border:1px solid rgba(109,200,191,0.20);color:rgba(255,255,255,0.30);font-size:18px;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;}
+.tc-btn:active{background:rgba(109,200,191,0.26);color:rgba(255,255,255,0.75);border-color:rgba(109,200,191,0.50);}
+#tc-pad2 .tc-btn{background:rgba(255,221,0,0.08);border-color:rgba(255,221,0,0.20);}
+#tc-pad2 .tc-btn:active{background:rgba(255,221,0,0.26);border-color:rgba(255,221,0,0.50);}
+.tc-fire{position:absolute;bottom:40px;width:58px;height:58px;border-radius:50%;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;font-size:22px;}
+#tc-fire1{left:176px;background:rgba(109,200,191,0.08);border:1px solid rgba(109,200,191,0.20);color:rgba(109,200,191,0.42);}
+#tc-fire1:active{background:rgba(109,200,191,0.28);color:rgba(109,200,191,0.95);border-color:rgba(109,200,191,0.55);}
+#tc-fire2{right:176px;background:rgba(255,221,0,0.08);border:1px solid rgba(255,221,0,0.20);color:rgba(255,221,0,0.42);display:none;}
+#tc-fire2:active{background:rgba(255,221,0,0.28);color:rgba(255,221,0,0.95);border-color:rgba(255,221,0,0.55);}
+#tc-pause{position:absolute;top:58px;left:8px;width:34px;height:34px;border-radius:6px;background:rgba(139,114,190,0.08);border:1px solid rgba(139,114,190,0.20);color:rgba(255,255,255,0.28);font-size:13px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
+#tc-pause:active{background:rgba(139,114,190,0.26);color:rgba(255,255,255,0.70);}
+#tc-fs-game{position:absolute;top:58px;right:8px;width:34px;height:34px;border-radius:6px;background:rgba(139,114,190,0.08);border:1px solid rgba(139,114,190,0.20);color:rgba(255,255,255,0.28);font-size:14px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
+#tc-fs-game:active{background:rgba(139,114,190,0.26);color:rgba(255,255,255,0.70);}
+.mobile-only{display:none;}
 </style>
 </head>
 <body>
@@ -51,7 +71,8 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
     <button class="menu-btn" onclick="showS('settings')">⚙ SETTINGS</button>
     <button class="menu-btn" onclick="showS('hiscores')">★ HIGH SCORES</button>
     <button class="menu-btn" onclick="showTutorial()">? HOW TO PLAY</button>
-    <div style="margin-top:28px;font-size:7px;color:#333;text-align:center;line-height:2.2">P1: WASD MOVE · SPACE SHOOT<br>P=PAUSE · M=MUTE · F=FULLSCREEN</div>
+    <button class="menu-btn mobile-only" onclick="toggleFS()" style="margin-top:10px">⛶ FULLSCREEN</button>
+    <div style="margin-top:28px;font-size:7px;color:#333;text-align:center;line-height:2.2" id="title-hint">P1: WASD MOVE · SPACE SHOOT<br>P=PAUSE · M=MUTE · F=FULLSCREEN</div>
   </div>
 
   <!-- SETTINGS -->
@@ -140,12 +161,35 @@ canvas{display:block;border:2px solid #8b72be;box-shadow:0 0 20px #8b72be55,0 0 
   <!-- PAUSE -->
   <div class="screen hidden" id="s-pause">
     <div class="title-main">PAUSED</div>
-    <div style="font-size:8px;color:#555;margin:18px 0">PRESS P TO RESUME</div>
+    <div style="font-size:8px;color:#555;margin:18px 0" id="pause-hint">PRESS P TO RESUME</div>
     <button class="menu-btn" onclick="togglePause()">▶ RESUME</button>
     <button class="menu-btn" onclick="quitToMenu()">◀ QUIT TO MENU</button>
   </div>
 
   <div id="dbg"><div id="dbg-content"></div><div id="dbg-handle"></div></div>
+
+  <!-- MOBILE TOUCH CONTROLS -->
+  <div id="touch-overlay">
+    <!-- P1: D-pad bottom-left, fire to the right of it -->
+    <div class="tc-pad" id="tc-pad1">
+      <button class="tc-btn tc-up" data-dir="UP">▲</button>
+      <button class="tc-btn tc-left" data-dir="LEFT">◀</button>
+      <button class="tc-btn tc-right" data-dir="RIGHT">▶</button>
+      <button class="tc-btn tc-down" data-dir="DOWN">▼</button>
+    </div>
+    <button class="tc-fire" id="tc-fire1">⚡</button>
+    <!-- P2: D-pad bottom-right, fire to the left of it (2P only) -->
+    <div class="tc-pad" id="tc-pad2">
+      <button class="tc-btn tc-up" data-dir="UP">▲</button>
+      <button class="tc-btn tc-left" data-dir="LEFT">◀</button>
+      <button class="tc-btn tc-right" data-dir="RIGHT">▶</button>
+      <button class="tc-btn tc-down" data-dir="DOWN">▼</button>
+    </div>
+    <button class="tc-fire" id="tc-fire2">⚡</button>
+    <!-- Pause and fullscreen buttons (top corners of game area) -->
+    <button id="tc-pause" onclick="togglePause()">⏸</button>
+    <button id="tc-fs-game" onclick="toggleFS()">⛶</button>
+  </div>
 </div>
 
 <script>
@@ -398,28 +442,43 @@ function noise(ms,vol=0.2){
     s.start();
   }catch(e){}
 }
+// bandpass-filtered noise: softer whoosh/breath texture instead of raw static
+function fnoise(freq,q,ms,vol=0.15){
+  if(cfg.muted)return;
+  try{
+    const sv=vol*cfg.sfxVol;
+    const a=ac(),n=a.sampleRate*ms/1000,buf=a.createBuffer(1,n,a.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+    const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();
+    f.type='bandpass';f.frequency.value=freq;f.Q.value=q;
+    s.buffer=buf;s.connect(f);f.connect(g);g.connect(a.destination);
+    g.gain.setValueAtTime(sv,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+ms/1000);
+    s.start();
+  }catch(e){}
+}
 const sfx={
-  eat:()=>tone(330,'sine',70,0.14,330,520),
-  laser:()=>tone(700,'sawtooth',100,0.16,700,180),
-  death:()=>{noise(350,0.22);setTimeout(()=>tone(160,'triangle',180,0.15,160,50),70);},
-  lvlup:()=>{[523,659,784,1047].forEach((n,i)=>setTimeout(()=>tone(n,'triangle',180,0.18),i*130));},
-  gameover:()=>{[330,277,220].forEach((n,i)=>setTimeout(()=>tone(n,'triangle',400,0.2),i*320));},
-  shield:()=>{tone(110,'sine',220,0.25);noise(80,0.06);},
-  headshot:()=>{tone(1100,'triangle',70,0.22,1100,280);noise(180,0.14);},
+  eat:      ()=>tone(330,'sine',110,0.14,330,620),
+  laser:    ()=>{tone(700,'sawtooth',150,0.17,700,160);fnoise(900,5,100,0.05);},
+  death:    ()=>{noise(420,0.22);setTimeout(()=>tone(160,'triangle',260,0.15,160,42),70);},
+  lvlup:    ()=>{[523,659,784,1047].forEach((n,i)=>setTimeout(()=>tone(n,'triangle',260,0.18),i*155));},
+  gameover: ()=>{[330,277,220].forEach((n,i)=>setTimeout(()=>tone(n,'triangle',560,0.20),i*380));},
+  shield:   ()=>{tone(110,'sine',300,0.26);noise(130,0.07);},
+  headshot: ()=>{tone(1100,'triangle',110,0.22,1100,260);fnoise(1200,4,200,0.08);},
   pup:{
-    SPEED:  ()=>{tone(440,'square',50,0.12,440,900);tone(660,'square',50,0.08,660,1200);},
-    SLOW:   ()=>{tone(280,'triangle',300,0.15,280,120);},
-    AMMO:   ()=>{[880,660,440].forEach((n,i)=>setTimeout(()=>tone(n,'square',55,0.11),i*40));},
-    WBUST:  ()=>{noise(220,0.20);setTimeout(()=>tone(90,'sawtooth',200,0.18,90,38),30);},
-    SHIELD: ()=>{tone(880,'sine',180,0.13);setTimeout(()=>tone(1100,'sine',280,0.09),60);},
-    TCUT:   ()=>{tone(700,'sawtooth',80,0.14,820,420);setTimeout(()=>noise(80,0.08),40);},
-    GHOST:  ()=>{tone(330,'sine',420,0.09,330,500);setTimeout(()=>tone(500,'sine',420,0.06,500,330),80);},
-    SMULT:  ()=>{[880,1047,1319,1568].forEach((n,i)=>setTimeout(()=>tone(n,'sine',100,0.11),i*55));},
-    LIFE:   ()=>{tone(180,'sine',140,0.22);setTimeout(()=>tone(220,'sine',90,0.18),170);},
-    REV:    ()=>{tone(680,'sawtooth',190,0.15,680,180);},
-    SHRINK: ()=>{tone(480,'triangle',200,0.13,480,190);},
-    MAGNET: ()=>{[195,202].forEach(f=>tone(f,'sawtooth',380,0.09));},
-    REVIVE: ()=>{[440,660,880,1047].forEach((n,i)=>setTimeout(()=>tone(n,'sine',150,0.18),i*100));},
+    SPEED:  ()=>{tone(440,'square',80,0.13,440,1000);tone(660,'square',70,0.09,660,1400);},
+    SLOW:   ()=>{tone(280,'triangle',420,0.15,280,110);},
+    AMMO:   ()=>{[880,660,440].forEach((n,i)=>setTimeout(()=>tone(n,'square',80,0.11),i*50));},
+    WBUST:  ()=>{noise(300,0.21);setTimeout(()=>tone(90,'sawtooth',280,0.18,90,36),30);},
+    SHIELD: ()=>{tone(880,'sine',240,0.14);setTimeout(()=>tone(1100,'sine',360,0.10),70);},
+    TCUT:   ()=>{tone(700,'sawtooth',120,0.15,820,360);setTimeout(()=>noise(110,0.08),40);},
+    GHOST:  ()=>{tone(330,'sine',560,0.10,330,520);setTimeout(()=>tone(520,'sine',520,0.07,520,330),90);},
+    SMULT:  ()=>{[880,1047,1319,1568].forEach((n,i)=>setTimeout(()=>tone(n,'sine',150,0.12),i*60));},
+    LIFE:   ()=>{tone(180,'sine',200,0.22);setTimeout(()=>tone(220,'sine',140,0.19),190);},
+    REV:    ()=>{tone(680,'sawtooth',280,0.16,680,160);},
+    SHRINK: ()=>{tone(480,'triangle',280,0.14,480,175);},
+    MAGNET: ()=>{[195,202].forEach(f=>tone(f,'sawtooth',520,0.10));},
+    REVIVE: ()=>{[440,660,880,1047].forEach((n,i)=>setTimeout(()=>tone(n,'sine',220,0.19),i*115));},
   },
 };
 
@@ -488,7 +547,7 @@ function initCanvas(){
 function resizeC(){
   const[cols,rows]=GRID_PRESETS[cfg.grid];COLS=cols;ROWS=rows;
   const mw=Math.min(window.innerWidth-16,920),mh=Math.min(window.innerHeight-16,700)-52;
-  CELL=Math.max(13,Math.min(22,Math.floor(Math.min(mw/COLS,mh/ROWS))));
+  CELL=Math.max(7,Math.min(22,Math.floor(Math.min(mw/COLS,mh/ROWS))));
   canvas.width=COLS*CELL;canvas.height=ROWS*CELL+52;
   const w=document.getElementById('wrapper');
   w.style.width=canvas.width+'px';w.style.height=canvas.height+'px';
@@ -502,6 +561,7 @@ function rr(x,y,w,h,r){
 }
 function render(ts){
   if(!ctx)return;
+  updateTouchOverlay();
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle='#071824';ctx.fillRect(0,0,canvas.width,52);
   ctx.strokeStyle='#8b72be44';ctx.lineWidth=1;
@@ -857,6 +917,60 @@ function initInput(){
       if(g==='grid')resizeC();
     });
   });
+}
+
+// ================================================================
+// 6b. MOBILE TOUCH INPUT
+// ================================================================
+function isMobile(){return'ontouchstart'in window||navigator.maxTouchPoints>0;}
+
+let _tcPhase=null,_tcP2=null;
+function updateTouchOverlay(){
+  const phase=G?G.phase:null;
+  const p2=cfg.players==='2';
+  if(phase===_tcPhase&&p2===_tcP2)return;
+  _tcPhase=phase;_tcP2=p2;
+  const ov=document.getElementById('touch-overlay');if(!ov)return;
+  const show=isMobile()&&phase==='playing';
+  ov.style.display=show?'block':'none';
+  if(show){
+    const pad2=document.getElementById('tc-pad2');
+    const fire2=document.getElementById('tc-fire2');
+    if(pad2)pad2.style.display=p2?'grid':'none';
+    if(fire2)fire2.style.display=p2?'flex':'none';
+  }
+}
+
+function initTouch(){
+  if(!isMobile())return;
+  // Unlock Web Audio on first touch (required on iOS)
+  document.addEventListener('touchstart',()=>{try{ac();}catch(e){}},{once:true,passive:true});
+  // Show mobile-only elements (FS button on title screen, etc.)
+  document.querySelectorAll('.mobile-only').forEach(el=>el.style.display='block');
+  // Update static hint text for touch devices
+  const th=document.getElementById('title-hint');
+  if(th)th.innerHTML='P1: D-PAD MOVE · ⚡ SHOOT · ⏸ PAUSE';
+  const ph=document.getElementById('pause-hint');
+  if(ph)ph.textContent='TAP RESUME TO CONTINUE';
+  // Wire D-pad direction buttons for both players
+  document.querySelectorAll('#tc-pad1 .tc-btn, #tc-pad2 .tc-btn').forEach(btn=>{
+    btn.addEventListener('touchstart',e=>{
+      e.preventDefault();
+      if(!G||G.phase!=='playing')return;
+      const dir=btn.dataset.dir;if(!dir)return;
+      if(btn.closest('#tc-pad1')){if(dirQ.length<2)dirQ.push(dir);}
+      else{if(dirQ2.length<2)dirQ2.push(dir);}
+    },{passive:false});
+  });
+  // Wire fire buttons
+  document.getElementById('tc-fire1')?.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(G&&G.phase==='playing'&&G.player)fireLaser(G.player);
+  },{passive:false});
+  document.getElementById('tc-fire2')?.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(G&&G.phase==='playing'&&G.player2&&G.player2.alive)fireLaser(G.player2);
+  },{passive:false});
 }
 
 // ================================================================
@@ -1343,6 +1457,7 @@ function showS(name){
   const el=document.getElementById(`s-${name}`);
   if(el)el.classList.remove('hidden');
   if(name==='hiscores')renderHS();
+  updateTouchOverlay();
 }
 function renderHS(){
   const sc=getScores();
@@ -1370,6 +1485,17 @@ function showGameOver(){
   if(isNew)saveScore(G.score,G.level);
   G._goData={score:G.score,level:G.level,hs:isNew?G.score:hs,isNew};
   G._goReady=true;
+  // Populate HTML game over screen
+  const goScore=document.getElementById('go-score');
+  const goLevel=document.getElementById('go-level');
+  const goHs=document.getElementById('go-hs');
+  const goHsLabel=document.getElementById('go-hs-label');
+  if(goScore)goScore.textContent=G.score;
+  if(goLevel)goLevel.textContent=G.level;
+  if(goHs)goHs.textContent=isNew?G.score:hs;
+  if(goHsLabel&&isNew)goHsLabel.innerHTML='<span class="new-record" style="color:#e8b84b">★ NEW HIGH SCORE! ★</span>';
+  // On mobile show the HTML screen (has tappable buttons); canvas renders it on desktop
+  if(isMobile())showS('gameover');
 }
 
 // ================================================================
@@ -1662,6 +1788,7 @@ function renderTutPage(){
 function init(){
   initCanvas();initInput();
   initGuide();
+  initTouch();
   showS('title');
   requestAnimationFrame(runTitleAnim);
 }
