@@ -944,6 +944,12 @@ function initInput(){
       applyPup(def.id,G.player);
       dbg('DBG pup: '+def.id);
     }
+    if(_dbgOn&&k==='n'&&G&&G.phase==='playing'){
+      e.preventDefault();
+      G.score+=1000;
+      checkLevel();
+      dbg('DBG next: +1000 pts');
+    }
   });
   document.addEventListener('keyup',e=>{keys[e.key]=false;});
   document.querySelectorAll('.sopt').forEach(b=>{
@@ -1168,20 +1174,41 @@ function findSafeSpawn(ix,iy,dir){
   }
   return{x:ix,y:iy};
 }
+function buildSegs(x,y,dir,len){
+  const s=[];
+  for(let i=0;i<len;i++)s.push({x:x+(dir==='RIGHT'?-i:dir==='LEFT'?i:0),y:y+(dir==='DOWN'?-i:dir==='UP'?i:0)});
+  return s;
+}
+function findBestSpawn(ix,iy,preferDir){
+  const FRONT=3;
+  const sp=findSafeSpawn(ix,iy,preferDir);
+  const fwd=preferDir==='RIGHT'?1:-1;
+  let ok=true;
+  for(let i=1;i<=FRONT;i++){const fx=sp.x+fwd*i;if(fx<0||fx>=COLS||G.walls.has(`${fx},${sp.y}`)){ok=false;break;}}
+  if(ok)return{x:sp.x,y:sp.y,dir:preferDir};
+  for(const vd of['UP','DOWN']){
+    const vf=vd==='UP'?-1:1,vb=vd==='UP'?1:-1;
+    let bOk=true;
+    for(let i=1;i<=3;i++){const by=sp.y+vb*i;if(by<0||by>=ROWS||G.walls.has(`${ix},${by}`)){bOk=false;break;}}
+    if(!bOk)continue;
+    let fOk=true;
+    for(let i=1;i<=FRONT;i++){const fy=sp.y+vf*i;if(fy<0||fy>=ROWS||G.walls.has(`${ix},${fy}`)){fOk=false;break;}}
+    if(fOk)return{x:ix,y:sp.y,dir:vd};
+  }
+  return{x:sp.x,y:sp.y,dir:preferDir};
+}
 
 function makeAI(){
   const ax=Math.floor(COLS*0.75),ay=Math.floor(ROWS*0.33);
-  const sp=findSafeSpawn(ax,ay,'LEFT');
-  const a=makeWorm(sp.x,sp.y,'LEFT','#ff6b35','#993322',4,false);
-  a.segs=[{x:sp.x,y:sp.y},{x:sp.x+1,y:sp.y},{x:sp.x+2,y:sp.y},{x:sp.x+3,y:sp.y}];
+  const sp=findBestSpawn(ax,ay,'LEFT');
+  const a=makeWorm(sp.x,sp.y,sp.dir,'#ff6b35','#993322',4,false);
   a.lc=5500;
   return a;
 }
 function makeAI2(){
   const ax=Math.floor(COLS*0.25),ay=Math.floor(ROWS*0.67);
-  const sp=findSafeSpawn(ax,ay,'RIGHT');
-  const a=makeWorm(sp.x,sp.y,'RIGHT','#cc44ff','#662288',4,false);
-  a.segs=[{x:sp.x,y:sp.y},{x:sp.x-1,y:sp.y},{x:sp.x-2,y:sp.y},{x:sp.x-3,y:sp.y}];
+  const sp=findBestSpawn(ax,ay,'RIGHT');
+  const a=makeWorm(sp.x,sp.y,sp.dir,'#cc44ff','#662288',4,false);
   a.lc=6000;
   return a;
 }
@@ -1447,10 +1474,9 @@ function respawn(w){
   let spx,spy,spDir;
   if(w===G.player){spx=Math.floor(COLS*.2);spy=Math.floor(ROWS*.33);spDir='RIGHT';}
   else{spx=Math.floor(COLS*.8);spy=Math.floor(ROWS*.67);spDir='LEFT';}
-  const sp=findSafeSpawn(spx,spy,spDir);
-  const back=spDir==='RIGHT'?-1:1;
-  w.segs=[{x:sp.x,y:sp.y},{x:sp.x+back,y:sp.y},{x:sp.x+back*2,y:sp.y},{x:sp.x+back*3,y:sp.y}];
-  w.dir=spDir;w.ndir=spDir;
+  const sp=findBestSpawn(spx,spy,spDir);
+  w.segs=buildSegs(sp.x,sp.y,sp.dir,4);
+  w.dir=sp.dir;w.ndir=sp.dir;
   w.alive=true;w.ammo=INIT_AMMO;w.grow=0;w.lc=0;
   w.fx={speed:0,slow:0,ghost:0,smult:0,magnet:0};
   w.shield=false;w.wbust=false;
@@ -1563,9 +1589,9 @@ function startLevel(){
   // P1 — top-left quadrant, facing right
   if(G.player.lives>0){
     const px=Math.floor(COLS*.2),py=Math.floor(ROWS*.33);
-    const psp=findSafeSpawn(px,py,'RIGHT');
-    G.player.segs=[{x:psp.x,y:psp.y},{x:psp.x-1,y:psp.y},{x:psp.x-2,y:psp.y},{x:psp.x-3,y:psp.y}];
-    G.player.dir='RIGHT';G.player.ndir='RIGHT';
+    const psp=findBestSpawn(px,py,'RIGHT');
+    G.player.segs=buildSegs(psp.x,psp.y,psp.dir,4);
+    G.player.dir=psp.dir;G.player.ndir=psp.dir;
     G.player.alive=true;G.player.ammo=INIT_AMMO;G.player.grow=0;G.player.lc=0;
     G.player.fx={speed:0,slow:0,ghost:0,smult:0,magnet:0};G.player.shield=false;G.player.wbust=false;
   }
@@ -1577,9 +1603,9 @@ function startLevel(){
     }
     if(G.player2.lives>0){
       const p2x=Math.floor(COLS*.8),p2y=Math.floor(ROWS*.67);
-      const p2sp=findSafeSpawn(p2x,p2y,'LEFT');
-      G.player2.segs=[{x:p2sp.x,y:p2sp.y},{x:p2sp.x+1,y:p2sp.y},{x:p2sp.x+2,y:p2sp.y},{x:p2sp.x+3,y:p2sp.y}];
-      G.player2.dir='LEFT';G.player2.ndir='LEFT';
+      const p2sp=findBestSpawn(p2x,p2y,'LEFT');
+      G.player2.segs=buildSegs(p2sp.x,p2sp.y,p2sp.dir,4);
+      G.player2.dir=p2sp.dir;G.player2.ndir=p2sp.dir;
       G.player2.alive=true;G.player2.ammo=INIT_AMMO;G.player2.grow=0;G.player2.lc=0;
       G.player2.fx={speed:0,slow:0,ghost:0,smult:0,magnet:0};G.player2.shield=false;G.player2.wbust=false;
     }
