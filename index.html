@@ -351,7 +351,7 @@ let cfg={speed:'casual',grid:'medium',players:'1',rivals:'1',ai:'medium',muted:f
 let COLS=40,ROWS=28,CELL=18;
 let canvas,ctx,G={};
 let loopActive=false,lastT=0,accum=0,accum2=0,loopId=0;
-let dirQ=[],dirQ2=[];
+let dirQ=[],dirQ2=[],p1DirStack=[],p2DirStack=[];
 
 function makeWorm(hx,hy,dir,cHead,cBody,len,isP){
   const segs=[];
@@ -873,11 +873,19 @@ function drawWorm(w,ts){
   const s=w.segs;if(!s||s.length===0)return;
   const isGhost=w.isP&&w.fx&&w.fx.ghost>0;
   ctx.save();if(isGhost)ctx.globalAlpha=.45;
+  const lt=w._lerp!==undefined?w._lerp:1;
+  const lsegs=s.map((seg,i)=>{
+    let prev;
+    if(i===0)prev=s.length>1?s[1]:(w.prevHead||seg);
+    else if(i===s.length-1)prev=w.prevTail||seg;
+    else prev=s[i+1];
+    return{x:prev.x+(seg.x-prev.x)*lt,y:prev.y+(seg.y-prev.y)*lt};
+  });
   for(let i=s.length-1;i>=1;i--){
-    const seg=s[i],t=1-(i/s.length)*.35;
+    const seg=lsegs[i],t=1-(i/s.length)*.35;
     ctx.fillStyle=hexA(w.cBody,t);
     if(i<s.length-1){
-      const n=s[i+1];
+      const n=lsegs[i+1];
       const cx1=seg.x*CELL+CELL/2,cy1=52+seg.y*CELL+CELL/2;
       const cx2=n.x*CELL+CELL/2,cy2=52+n.y*CELL+CELL/2;
       ctx.fillRect(Math.min(cx1,cx2)-CELL*.27,Math.min(cy1,cy2)-CELL*.27,
@@ -886,26 +894,26 @@ function drawWorm(w,ts){
     const pd=Math.floor(CELL*.12),sz=CELL-pd*2,r=sz*.35;
     rr(seg.x*CELL+pd,52+seg.y*CELL+pd,sz,sz,r);ctx.fill();
   }
-  const h=s[0];
+  const{x:hgx,y:hgy}=lsegs[0];
+  const hcx=hgx*CELL+CELL/2,hcy=52+hgy*CELL+CELL/2;
   if(s.length>1){
-    const nk=s[1];
+    const nk=lsegs[1];
     ctx.fillStyle=w.cHead;
     const ncx=nk.x*CELL+CELL/2,ncy=52+nk.y*CELL+CELL/2;
-    const hcxc=h.x*CELL+CELL/2,hcyc=52+h.y*CELL+CELL/2;
-    ctx.fillRect(Math.min(hcxc,ncx)-CELL*.3,Math.min(hcyc,ncy)-CELL*.3,
-      Math.abs(hcxc-ncx)+CELL*.6,Math.abs(hcyc-ncy)+CELL*.6);
+    ctx.fillRect(Math.min(hcx,ncx)-CELL*.3,Math.min(hcy,ncy)-CELL*.3,
+      Math.abs(hcx-ncx)+CELL*.6,Math.abs(hcy-ncy)+CELL*.6);
   }
   const comboGlow=w.isP&&G.combo>1?(G.comboMult-1)*CELL*.55:0;
   ctx.fillStyle=w.cHead;ctx.shadowColor=w.cHead;ctx.shadowBlur=CELL*.8+comboGlow;
   const hp=Math.floor(CELL*.06),hs=CELL-hp*2,hr=hs*.42;
-  rr(h.x*CELL+hp,52+h.y*CELL+hp,hs,hs,hr);ctx.fill();
+  rr(hgx*CELL+hp,52+hgy*CELL+hp,hs,hs,hr);ctx.fill();
   ctx.shadowBlur=0;
   const ef=CELL*.26,eo=CELL*.22,es=Math.max(2,CELL*.12);
-  const hcx=h.x*CELL+CELL/2,hcy=52+h.y*CELL+CELL/2;
+  const eyeDir=w.ndir||w.dir;
   let e1,e2;
-  if(w.dir==='RIGHT'){e1={x:hcx+ef,y:hcy-eo};e2={x:hcx+ef,y:hcy+eo};}
-  else if(w.dir==='LEFT'){e1={x:hcx-ef,y:hcy-eo};e2={x:hcx-ef,y:hcy+eo};}
-  else if(w.dir==='UP'){e1={x:hcx-eo,y:hcy-ef};e2={x:hcx+eo,y:hcy-ef};}
+  if(eyeDir==='RIGHT'){e1={x:hcx+ef,y:hcy-eo};e2={x:hcx+ef,y:hcy+eo};}
+  else if(eyeDir==='LEFT'){e1={x:hcx-ef,y:hcy-eo};e2={x:hcx-ef,y:hcy+eo};}
+  else if(eyeDir==='UP'){e1={x:hcx-eo,y:hcy-ef};e2={x:hcx+eo,y:hcy-ef};}
   else{e1={x:hcx-eo,y:hcy+ef};e2={x:hcx+eo,y:hcy+ef};}
   ctx.fillStyle='#fff';
   ctx.beginPath();ctx.arc(e1.x,e1.y,es,0,Math.PI*2);ctx.fill();
@@ -943,7 +951,8 @@ function drawWorm(w,ts){
   ctx.restore();
 }
 function drawLaser(l,ts){
-  const x=l.x*CELL,y=52+l.y*CELL;
+  const lt=Math.min(1,l.t/LASER_MS);
+  const x=(l.px+(l.x-l.px)*lt)*CELL,y=52+(l.py+(l.y-l.py)*lt)*CELL;
   ctx.save();ctx.shadowColor='#fff700';ctx.shadowBlur=22;ctx.fillStyle='#fff700';ctx.globalAlpha=.92;
   if(l.dir==='LEFT'||l.dir==='RIGHT')
     ctx.fillRect(x+CELL*.05,y+CELL*.33,CELL*.9,CELL*.34);
@@ -1130,14 +1139,30 @@ function initInput(){
     else if(k==='s'||k==='S')nd1='DOWN';
     else if(k==='a'||k==='A')nd1='LEFT';
     else if(k==='d'||k==='D')nd1='RIGHT';
-    if(nd1){e.preventDefault();if(dirQ.length<2)dirQ.push(nd1);}
+    if(nd1){
+      e.preventDefault();
+      p1DirStack=p1DirStack.filter(d=>d!==nd1);p1DirStack.push(nd1);
+      dirQ=[nd1];
+      if(G&&G.phase==='playing'&&G.player&&G.player.alive&&nd1!==OPP[G.player.dir])G.player.ndir=nd1;
+    }
     // Arrows: P2 in multiplayer, P1 in single player
     let ndArr=null;
     if(k==='ArrowUp')ndArr='UP';
     else if(k==='ArrowDown')ndArr='DOWN';
     else if(k==='ArrowLeft')ndArr='LEFT';
     else if(k==='ArrowRight')ndArr='RIGHT';
-    if(ndArr){e.preventDefault();if(cfg.players==='2'){if(dirQ2.length<2)dirQ2.push(ndArr);}else{if(dirQ.length<2)dirQ.push(ndArr);}}
+    if(ndArr){
+      e.preventDefault();
+      if(cfg.players==='2'){
+        p2DirStack=p2DirStack.filter(d=>d!==ndArr);p2DirStack.push(ndArr);
+        dirQ2=[ndArr];
+        if(G&&G.phase==='playing'&&G.player2&&G.player2.alive&&ndArr!==OPP[G.player2.dir])G.player2.ndir=ndArr;
+      }else{
+        p1DirStack=p1DirStack.filter(d=>d!==ndArr);p1DirStack.push(ndArr);
+        dirQ=[ndArr];
+        if(G&&G.phase==='playing'&&G.player&&G.player.alive&&ndArr!==OPP[G.player.dir])G.player.ndir=ndArr;
+      }
+    }
     // Shoot
     if(k===' '&&G&&G.phase==='playing'){e.preventDefault();fireLaser(G.player);}
     if((k==='Shift'||k==='Control')&&G&&G.phase==='playing'&&G.player2&&G.player2.alive){e.preventDefault();fireLaser(G.player2);}
@@ -1184,7 +1209,36 @@ function initInput(){
       dbg('DBG next: +1000 pts');
     }
   });
-  document.addEventListener('keyup',e=>{keys[e.key]=false;});
+  document.addEventListener('keyup',e=>{
+    keys[e.key]=false;
+    const ku=e.key;
+    let rel1=null;
+    if(ku==='w'||ku==='W')rel1='UP';
+    else if(ku==='s'||ku==='S')rel1='DOWN';
+    else if(ku==='a'||ku==='A')rel1='LEFT';
+    else if(ku==='d'||ku==='D')rel1='RIGHT';
+    if(rel1){
+      p1DirStack=p1DirStack.filter(d=>d!==rel1);
+      const fb=p1DirStack[p1DirStack.length-1];
+      if(fb){dirQ=[fb];if(G&&G.phase==='playing'&&G.player&&G.player.alive&&fb!==OPP[G.player.dir])G.player.ndir=fb;}
+    }
+    let relArr=null;
+    if(ku==='ArrowUp')relArr='UP';
+    else if(ku==='ArrowDown')relArr='DOWN';
+    else if(ku==='ArrowLeft')relArr='LEFT';
+    else if(ku==='ArrowRight')relArr='RIGHT';
+    if(relArr){
+      if(cfg.players==='2'){
+        p2DirStack=p2DirStack.filter(d=>d!==relArr);
+        const fb=p2DirStack[p2DirStack.length-1];
+        if(fb){dirQ2=[fb];if(G&&G.phase==='playing'&&G.player2&&G.player2.alive&&fb!==OPP[G.player2.dir])G.player2.ndir=fb;}
+      }else{
+        p1DirStack=p1DirStack.filter(d=>d!==relArr);
+        const fb=p1DirStack[p1DirStack.length-1];
+        if(fb){dirQ=[fb];if(G&&G.phase==='playing'&&G.player&&G.player.alive&&fb!==OPP[G.player.dir])G.player.ndir=fb;}
+      }
+    }
+  });
   document.querySelectorAll('.sopt').forEach(b=>{
     b.addEventListener('click',()=>{
       const g=b.dataset.g,v=b.dataset.v;cfg[g]=v;
@@ -1510,11 +1564,13 @@ function updateAI(dt){
     }
     const accKey=ai===G.ai?'aiAcc':'ai2Acc';
     G[accKey]+=dt;
-    if(G[accKey]<aiInterval(ai))continue;
-    G[accKey]=0;
-    const dir=aiBFS(ai);
-    if(dir){ai.dir=dir;ai.ndir=dir;}
-    moveWorm(ai);
+    if(G[accKey]>=aiInterval(ai)){
+      G[accKey]-=aiInterval(ai);
+      const dir=aiBFS(ai);
+      if(dir){ai.dir=dir;ai.ndir=dir;}
+      moveWorm(ai);
+    }
+    ai._lerp=Math.min(1,G[accKey]/aiInterval(ai));
   }
 }
 
@@ -1628,9 +1684,10 @@ function moveWorm(w){
     for(let i=0;i<w.segs.length-1;i++){if(w.segs[i].x===nx&&w.segs[i].y===ny){killWorm(w,'self');return;}}
     const others=[G.player,G.player2,G.ai,G.ai2].filter(o=>o&&o!==w&&o.alive);
     for(const other of others){
-      for(const s of other.segs)if(s.x===nx&&s.y===ny){killWorm(w,'other');return;}
+      for(const s of other.segs)if(s.x===nx&&s.y===ny){killWorm(w,'other',other);return;}
     }
   }
+  w.prevHead={x:h.x,y:h.y};
   w.segs.unshift({x:nx,y:ny});
   G.pickups=G.pickups.filter(p=>{
     if(p.x===nx&&p.y===ny){collectPick(p,w);return false;}return true;
@@ -1646,7 +1703,7 @@ function moveWorm(w){
       return false;
     }return true;
   });
-  if(w.grow>0)w.grow--;else w.segs.pop();
+  if(w.grow>0)w.grow--;else{w.prevTail=w.segs[w.segs.length-1];w.segs.pop();}
   const minPicks=G.frenzy?12:3+Math.floor(G.level/3);
   if(G.pickups.length<minPicks)spawnPickup();
 }
@@ -1660,12 +1717,16 @@ function collectPick(p,w){
     G.comboTimer=5000;
     G.comboMult=Math.min(5,1+Math.floor(G.combo/3)*0.5);
     pts=Math.round(pts*G.comboMult);
+    // Length multiplier — stacks with combo and 2X powerup
+    const sizeMult=1+Math.floor(w.segs.length/10)*0.1;
+    if(sizeMult>1)pts=Math.round(pts*sizeMult);
     G.score+=pts;G.levelScore+=pts;G._levelProg+=pts;
     sfx.eat(G.combo);
     const pcol=`rgb(${cr},${cg},${cb})`;
     const txt=G.comboMult>1?`+${pts} ×${G.comboMult.toFixed(1)}`:`+${pts}`;
     popup({x:p.x,y:p.y},txt,pcol,16);
     if(G.combo>2)popup({x:p.x,y:p.y-1},`COMBO ×${G.combo}`,'#ffe566',10);
+    if(sizeMult>1)popup({x:p.x,y:p.y+1},`SIZE ×${sizeMult.toFixed(1)}`,'#00ff88',10);
   }
   w.grow+=p.val;
 }
@@ -1673,9 +1734,10 @@ function fireLaser(w){
   if(w.ammo<=0||w.lc>0)return;
   w.ammo--;w.lc=800;sfx.laser();
   const h=w.segs[0];
-  const sx=h.x+DIRS[w.dir].x,sy=h.y+DIRS[w.dir].y;
+  const fdir=w.ndir||w.dir;
+  const sx=h.x+DIRS[fdir].x,sy=h.y+DIRS[fdir].y;
   if(sx<0||sy<0||sx>=COLS||sy>=ROWS)return;
-  G.lasers.push({x:sx,y:sy,dir:w.dir,own:w,wb:w.wbust,t:0});
+  G.lasers.push({x:sx,y:sy,px:sx,py:sy,dir:fdir,own:w,wb:w.wbust,t:0});
   if(w.wbust)w.wbust=false;
 }
 function updateLasers(dt){
@@ -1685,6 +1747,7 @@ function updateLasers(dt){
     l.t+=dt;
     if(l.t<LASER_MS)return;
     l.t-=LASER_MS;
+    l.px=l.x;l.py=l.y;
     l.x+=DIRS[l.dir].x;l.y+=DIRS[l.dir].y;
     if(l.x<0||l.y<0||l.x>=COLS||l.y>=ROWS){rem.push(i);return;}
     if(G.walls.has(`${l.x},${l.y}`)){
@@ -1708,6 +1771,7 @@ function updateLasers(dt){
           const cut=tgt.segs.length-j;
           for(let k=j;k<tgt.segs.length;k++)burst(tgt.segs[k].x,tgt.segs[k].y,tgt.cHead,5);
           tgt.segs=tgt.segs.slice(0,j);
+          tgt.prevTail=null;
           if(l.own.isP){const pts=cut*15;G.score+=pts;G.levelScore+=pts;G._levelProg+=pts;popup({x:l.x,y:l.y},`+${pts}`,'#ff8800',14);}
           rem.push(i);return;
         }
@@ -1716,7 +1780,7 @@ function updateLasers(dt){
   });
   for(let i=rem.length-1;i>=0;i--)G.lasers.splice(rem[i],1);
 }
-function killWorm(w,cause){
+function killWorm(w,cause,killer){
   if(!w.alive)return;
   if(w.isP&&w.shield&&cause!=='gameover'){
     w.shield=false;sfx.shield();popup(w.segs[0],'SHIELD BLOCKED!','#4488ff',13);return;
@@ -1735,6 +1799,12 @@ function killWorm(w,cause){
     setTimeout(()=>{if(!G||G._gen!==_gen)return;burst(s.x,s.y,w.cBody,5+Math.floor(i*.3),{spark:i%3===0});},i*35);
   });
   w.alive=false;
+  // Award trap-kill points to the player whose body the enemy ran into
+  if(!w.isP&&cause==='other'&&killer&&killer.isP){
+    const pts=100+w.segs.length*10;
+    G.score+=pts;G.levelScore+=pts;G._levelProg+=pts;
+    popup(w.segs[0],`+${pts} TRAP!`,'#ff8800',16);
+  }
   if(w.isP){
     G.combo=0;G.comboMult=1;G.comboTimer=0;
     w.lives--;
@@ -1776,7 +1846,7 @@ function respawn(w){
   w.alive=true;w.ammo=INIT_AMMO;w.grow=0;w.lc=0;
   w.fx={speed:0,slow:0,ghost:0,smult:0,magnet:0};
   w.shield=false;w.wbust=false;
-  if(w===G.player)dirQ=[];else dirQ2=[];
+  if(w===G.player){dirQ=[];p1DirStack=[];}else{dirQ2=[];p2DirStack=[];}
 }
 function levelThreshold(lv){
   return 1000 * lv;
@@ -2104,7 +2174,7 @@ function startLevel(){
 
   const initPickups=G.frenzy?14:6;
   for(let i=0;i<initPickups;i++)spawnPickup();
-  G.phase='levelstart';dirQ=[];dirQ2=[];
+  G.phase='levelstart';dirQ=[];dirQ2=[];p1DirStack=[];p2DirStack=[];
   const name=G.level<=LEVEL_DEFS.length?def.name:`LEVEL ${G.level}`;
   const tag=G.level<=LEVEL_DEFS.length?def.tag:'Survive!';
   document.getElementById('lvl-name').textContent=`LEVEL ${G.level}: ${name}`;
@@ -2117,12 +2187,12 @@ function startLevel(){
     if(c<=0){
       clearInterval(cdInterval);cdInterval=null;
       document.getElementById('cd-num').textContent='GO!';
-      setTimeout(()=>{showS('');G.phase='playing';dirQ=[];dirQ2=[];},650);
+      setTimeout(()=>{showS('');G.phase='playing';dirQ=[];dirQ2=[];p1DirStack=[];p2DirStack=[];},650);
     }else document.getElementById('cd-num').textContent=c;
   },900);
 }
 function stopGame(keepMusic=false){
-  loopActive=false;if(!keepMusic)stopMusic();G=null;dirQ=[];dirQ2=[];accum=0;accum2=0;
+  loopActive=false;if(!keepMusic)stopMusic();G=null;dirQ=[];dirQ2=[];p1DirStack=[];p2DirStack=[];accum=0;accum2=0;
   if(cdInterval){clearInterval(cdInterval);cdInterval=null;}
 }
 function togglePause(){
@@ -2150,6 +2220,7 @@ function loop(ts,id){
       }
       if(G.player.alive)moveWorm(G.player);
     }
+    G.player._lerp=Math.min(1,accum/spd);
     // P2 movement (Arrow keys)
     if(G.player2){
       accum2+=dt;
@@ -2162,11 +2233,11 @@ function loop(ts,id){
         }
         if(G.player2.alive)moveWorm(G.player2);
       }
+      G.player2._lerp=Math.min(1,accum2/spd2);
     }
     updateAI(dt);
     updateLasers(dt);
     updateFX(dt);
-    updateParts(dt);
     updateCombo(dt);
     checkLevel();
     // Frenzy countdown timer
@@ -2187,6 +2258,7 @@ function loop(ts,id){
     }
     G.frameN++;
   }
+  if(G&&G.parts)updateParts(dt);
   if(G)render(ts);
   requestAnimationFrame(ts=>loop(ts,id));
 }
@@ -2418,6 +2490,7 @@ const TUT_PAGES=[
     <div><span style="color:#6dc8bf">ESC</span> Quit to menu</div>
     <div><span style="color:#6dc8bf">ENTER</span> Play again (game over)</div>
     <div><span style="color:#6dc8bf">TAB</span> &nbsp; Main menu (game over)</div>
+    <div><span style="color:#6dc8bf">R</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Retry level (game over / pause)</div>
   </div>
 </div></div>`
   },
@@ -2432,7 +2505,11 @@ const TUT_PAGES=[
 <div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">LASER</div>
 <div style="margin-bottom:14px;padding-left:8px">Fire lasers to cut rival tails or score headshots for big bonuses!<br>Ammo is limited — pick up <span style="color:#ff8800">🎯 AMMO PACKS</span> to reload.</div>
 <div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">LEVELING UP</div>
-<div style="padding-left:8px">Fill the progress bar to advance to the next level.<br>Each level introduces a harder arena layout.<br>You start with <span style="color:#ff4444">3 lives</span>. Lose them all and it's game over.</div>
+<div style="margin-bottom:14px;padding-left:8px">Fill the progress bar to advance to the next level.<br>Each level introduces a harder arena layout.<br>You start with <span style="color:#ff4444">3 lives</span>. Lose them all and it's game over.</div>
+<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">FOOD FRENZY</div>
+<div style="margin-bottom:14px;padding-left:8px">Some levels are <span style="color:#ffe566">FOOD FRENZY</span> rounds — no progress bar, just a <span style="color:#ffe566">60-second countdown</span>. Eat as much as you can before time runs out!</div>
+<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">DAILY CHALLENGE &amp; LEVEL SELECT</div>
+<div style="padding-left:8px">Pick any unlocked level from <span style="color:#6dc8bf">SELECT LEVEL</span>, or try the <span style="color:#e8b84b">⚑ DAILY CHALLENGE</span> — a different level each day with a separate leaderboard.</div>
 </div>`
   },
   {
@@ -2441,15 +2518,21 @@ const TUT_PAGES=[
   },
   {
     title:'SCORING',
-    content:`<div style="width:min(480px,94%);font-size:7px;color:#888;line-height:2.6">
+    content:`<div style="width:min(480px,94%);font-size:7px;color:#888;line-height:2.6;max-height:58vh;overflow-y:auto;padding-right:4px">
 <div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">FOOD PELLETS</div>
-<div style="margin-bottom:14px;padding-left:8px">Each pellet scores <span style="color:#6dc8bf">value × 10 points</span> and grows your worm by its value.<br>Val 1 = 10 pts &nbsp; Val 5 = 50 pts &nbsp; Val 10 = 100 pts</div>
+<div style="margin-bottom:14px;padding-left:8px">Each pellet scores <span style="color:#6dc8bf">value × 10 base points</span> and grows your worm by its value.<br>Val 1 = 10 pts &nbsp; Val 5 = 50 pts &nbsp; Val 10 = 100 pts</div>
+<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">COMBO MULTIPLIER</div>
+<div style="margin-bottom:14px;padding-left:8px">Eat pellets in a row to build a combo! Every <span style="color:#ffe566">3 consecutive eats</span> adds <span style="color:#ffe566">×0.5</span> to your multiplier (max <span style="color:#ffe566">×5.0</span>).<br>Combo 3–5 = ×1.5 &nbsp; Combo 6–8 = ×2.0 &nbsp; ... up to ×5.0<br>Watch the arc in the bottom-left — you have <span style="color:#6dc8bf">5 seconds</span> between eats to keep it going. Dying resets it!</div>
+<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">LENGTH MULTIPLIER</div>
+<div style="margin-bottom:14px;padding-left:8px">The longer your worm, the more each pellet is worth!<br>Every <span style="color:#00ff88">10 segments</span> adds +10% to food scores.<br>10 segs = ×1.1 &nbsp; 20 segs = ×1.2 &nbsp; 30 segs = ×1.3 ...</div>
+<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">2X SCORE POWER-UP</div>
+<div style="margin-bottom:14px;padding-left:8px">The <span style="color:#ffdd00">⭐ 2X SCORE</span> power-up doubles all food points for 10 seconds.<br>Stacks with your combo and length bonuses — activate it at high combo for maximum effect!</div>
 <div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">LASER HITS</div>
 <div style="margin-bottom:14px;padding-left:8px">Headshot: <span style="color:#ff4444">250 + (target length × 10)</span> pts<br>Tail cut: <span style="color:#ff8800">segments cut × 15</span> pts</div>
-<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">2X SCORE MULTIPLIER</div>
-<div style="margin-bottom:14px;padding-left:8px">The <span style="color:#ffdd00">⭐ 2X SCORE</span> power-up doubles all food points for 10 seconds!</div>
 <div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">LEVEL THRESHOLDS</div>
-<div style="padding-left:8px">Each level requires <span style="color:#6dc8bf">level × 1,000 points</span> to advance.<br>Level 1 → 1,000 pts &nbsp; Level 2 → 2,000 pts &nbsp; Level 5 → 5,000 pts<br>The progress bar shows how close you are to the next level.</div>
+<div style="margin-bottom:14px;padding-left:8px">Each level requires <span style="color:#6dc8bf">level × 1,000 points</span> to advance.<br>Level 1 → 1,000 pts &nbsp; Level 2 → 2,000 pts &nbsp; Level 5 → 5,000 pts<br>The progress bar shows how close you are to the next level.</div>
+<div style="color:#8b72be;font-size:8px;margin-bottom:6px;letter-spacing:2px">FOOD FRENZY SCORING</div>
+<div style="padding-left:8px">Frenzy levels use a <span style="color:#ffe566">60-second timer</span> instead of a progress bar — eat as much as possible! All the same multipliers apply. Your frenzy haul is shown on a results screen, then you advance automatically.</div>
 </div>`
   },
 ];
